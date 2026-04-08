@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="FitTracker — Painel de controle dos seus treinos.">
+  <title>FitTracker — Meus Treinos</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Chart.js para gráficos -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+  <!-- ============================================ -->
+  <!-- TELA DE LOGIN / CADASTRO -->
+  <!-- ============================================ -->
+  <div class="auth-overlay" id="auth-overlay">
+    <div class="auth-container">
+      <!-- Formulário de Login -->
+      <div class="auth-form" id="form-login">
+        <div class="auth-header">
+          <a href="index.html" class="logo">
+            <span class="logo-icon">💪</span>
+            <span class="logo-text">Fit<span class="logo-accent">Tracker</span></span>
+          </a>
+          <h2 class="auth-title">Bem-vindo de volta!</h2>
+          <p class="auth-subtitle">Entre na sua conta para acessar seus treinos.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="login-email">Email</label>
+          <input class="form-input" type="email" id="login-email" placeholder="seu@email.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="login-senha">Senha</label>
+          <input class="form-input" type="password" id="login-senha" placeholder="Sua senha" required>
+        </div>
+        <div class="form-error" id="login-erro"></div>
+        <button class="btn btn-primary btn-full" id="btn-login" type="button">Entrar</button>
+        <p class="auth-switch">Não tem conta? <a href="#" id="link-para-cadastro">Cadastre-se</a></p>
+      </div>
+
+      <!-- Formulário de Cadastro -->
+      <div class="auth-form hidden" id="form-cadastro">
+        <div class="auth-header">
+          <a href="index.html" class="logo">
+            <span class="logo-icon">💪</span>
+            <span class="logo-text">Fit<span class="logo-accent">Tracker</span></span>
+          </a>
+          <h2 class="auth-title">Crie sua conta</h2>
+          <p class="auth-subtitle">Comece a registrar seus treinos agora mesmo.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cadastro-nome">Nome</label>
+          <input class="form-input" type="text" id="cadastro-nome" placeholder="Seu nome" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cadastro-email">Email</label>
+          <input class="form-input" type="email" id="cadastro-email" placeholder="seu@email.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cadastro-senha">Senha</label>
+          <input class="form-input" type="password" id="cadastro-senha" placeholder="Mínimo 6 caracteres" required>
+        </div>
+        <div class="form-error" id="cadastro-erro"></div>
+        <button class="btn btn-primary btn-full" id="btn-cadastro" type="button">Criar Conta</button>
+        <p class="auth-switch">Já tem conta? <a href="#" id="link-para-login">Faça login</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- APLICAÇÃO PRINCIPAL -->
+  <!-- ============================================ -->
+  <div class="app-wrapper hidden" id="app-wrapper">
+
+    <!-- Header -->
+    <header class="app-header" id="app-header">
+      <div class="app-header-content">
+        <a href="index.html" class="logo">
+          <span class="logo-icon">💪</span>
+          <span class="logo-text">Fit<span class="logo-accent">Tracker</span></span>
+        </a>
+
+        <nav class="app-nav" id="app-nav">
+          <button class="app-nav-btn active" data-tab="treinos" id="nav-treinos">
+            <span class="app-nav-icon">📋</span>
+            <span>Meus Treinos</span>
+          </button>
+          <button class="app-nav-btn" data-tab="registrar" id="nav-registrar">
+            <span class="app-nav-icon">📝</span>
+            <span>Registrar</span>
+          </button>
+          <button class="app-nav-btn" data-tab="evolucao" id="nav-evolucao">
+            <span class="app-nav-icon">📊</span>
+            <span>Evolução</span>
+          </button>
+          <button class="app-nav-btn" data-tab="historico" id="nav-historico">
+            <span class="app-nav-icon">📅</span>
+            <span>Histórico</span>
+          </button>
+        </nav>
+
+        <div class="app-user" id="app-user">
+          <div class="app-user-avatar" id="user-avatar">U</div>
+          <span class="app-user-name" id="user-name">Usuário</span>
+          <button class="btn btn-outline btn-small" id="btn-logout">Sair</button>
+        </div>
+
+        <button class="menu-toggle" id="app-menu-toggle" aria-label="Abrir menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </header>
+
+    <main class="app-main">
+
+      <!-- ==================== -->
+      <!-- ABA: MEUS TREINOS -->
+      <!-- ==================== -->
+      <section class="tab-content active" id="tab-treinos">
+        <div class="page-header">
+          <h1 class="page-title">Meus Treinos</h1>
+          <p class="page-subtitle">Organize seus exercícios por dia da semana — cada dia tem seu treino fixo</p>
+        </div>
+
+        <!-- Abas dos dias -->
+        <div class="days-tabs" id="days-tabs">
+          <button class="day-tab active" data-dia="segunda">Seg</button>
+          <button class="day-tab" data-dia="terca">Ter</button>
+          <button class="day-tab" data-dia="quarta">Qua</button>
+          <button class="day-tab" data-dia="quinta">Qui</button>
+          <button class="day-tab" data-dia="sexta">Sex</button>
+          <button class="day-tab" data-dia="sabado">Sáb</button>
+          <button class="day-tab" data-dia="domingo">Dom</button>
+        </div>
+
+        <!-- Adicionar exercício -->
+        <div class="add-exercise-bar">
+          <input class="form-input" type="text" id="exercicio-nome" placeholder="Nome do exercício (ex: Supino Reto)">
+          <button class="btn btn-primary" id="btn-adicionar-exercicio">+ Adicionar Exercício</button>
+        </div>
+
+        <!-- Lista de exercícios com séries -->
+        <div class="exercises-list" id="exercises-list">
+          <div class="empty-state" id="empty-exercises">
+            <span class="empty-icon">🏋️</span>
+            <p class="empty-text">Nenhum exercício cadastrado para este dia.</p>
+            <p class="empty-hint">Digite o nome acima e clique em "Adicionar Exercício".</p>
+          </div>
+        </div>
+
+        <!-- Legenda dos tipos de série -->
+        <div class="set-types-legend">
+          <h4>📖 Tipos de Série</h4>
+          <div class="legend-items">
+            <div class="legend-item">
+              <span class="legend-badge badge-valida">V</span>
+              <div>
+                <strong>Válida</strong>
+                <p>Série principal com carga de trabalho efetiva</p>
+              </div>
+            </div>
+            <div class="legend-item">
+              <span class="legend-badge badge-aquecimento">A</span>
+              <div>
+                <strong>Aquecimento</strong>
+                <p>Série leve (40-70% da carga) para preparar músculos e articulações</p>
+              </div>
+            </div>
+            <div class="legend-item">
+              <span class="legend-badge badge-dropset">D</span>
+              <div>
+                <strong>Dropset</strong>
+                <p>Após falha, reduz o peso e continua sem descanso para máxima fadiga</p>
+              </div>
+            </div>
+            <div class="legend-item">
+              <span class="legend-badge badge-cluster">C</span>
+              <div>
+                <strong>Cluster Set</strong>
+                <p>Mini-séries com pausas curtas (10-30s) entre grupos de repetições</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== -->
+      <!-- ABA: REGISTRAR TREINO -->
+      <!-- ==================== -->
+      <section class="tab-content" id="tab-registrar">
+        <div class="page-header">
+          <h1 class="page-title">Registrar Treino</h1>
+          <p class="page-subtitle">Registre o treino que você realizou — ajuste cada série individualmente</p>
+        </div>
+
+        <div class="register-controls">
+          <div class="form-group">
+            <label class="form-label" for="registro-data">Data do Treino</label>
+            <input class="form-input" type="date" id="registro-data">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="registro-dia">Dia da Semana</label>
+            <select class="form-input form-select" id="registro-dia">
+              <option value="segunda">Segunda-feira</option>
+              <option value="terca">Terça-feira</option>
+              <option value="quarta">Quarta-feira</option>
+              <option value="quinta">Quinta-feira</option>
+              <option value="sexta">Sexta-feira</option>
+              <option value="sabado">Sábado</option>
+              <option value="domingo">Domingo</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="register-exercises" id="register-exercises">
+          <div class="empty-state">
+            <span class="empty-icon">📋</span>
+            <p class="empty-text">Selecione um dia para ver os exercícios.</p>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-full btn-register-workout" id="btn-registrar-treino">
+          ✅ Registrar Treino Completo
+        </button>
+      </section>
+
+      <!-- ==================== -->
+      <!-- ABA: EVOLUÇÃO -->
+      <!-- ==================== -->
+      <section class="tab-content" id="tab-evolucao">
+        <div class="page-header">
+          <h1 class="page-title">Evolução</h1>
+          <p class="page-subtitle">Acompanhe sua evolução de carga, volume e repetições</p>
+        </div>
+
+        <div class="evolution-container" id="evolution-container">
+          <div class="evolution-select-group">
+            <label class="form-label" for="evolucao-exercicio">Selecione um exercício:</label>
+            <select class="form-input form-select" id="evolucao-exercicio">
+              <option value="">-- Selecione --</option>
+            </select>
+          </div>
+          <div class="chart-container" id="chart-container">
+            <canvas id="evolution-chart"></canvas>
+          </div>
+          <div class="evolution-summary" id="evolution-summary"></div>
+        </div>
+      </section>
+
+      <!-- ==================== -->
+      <!-- ABA: HISTÓRICO -->
+      <!-- ==================== -->
+      <section class="tab-content" id="tab-historico">
+        <div class="page-header">
+          <h1 class="page-title">Histórico de Treinos</h1>
+          <p class="page-subtitle">Todos os seus treinos registrados com detalhes de cada série</p>
+        </div>
+        <div class="history-container" id="history-container">
+          <div class="empty-state" id="empty-history">
+            <span class="empty-icon">📅</span>
+            <p class="empty-text">Nenhum treino registrado ainda.</p>
+            <p class="empty-hint">Vá até "Registrar" para começar.</p>
+          </div>
+          <div class="history-list" id="history-list"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- MODAL DE EDIÇÃO DE EXERCÍCIO -->
+  <!-- ============================================ -->
+  <div class="modal-overlay hidden" id="modal-overlay">
+    <div class="modal" id="modal-editar">
+      <div class="modal-header">
+        <h3 class="modal-title">Editar Exercício</h3>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editar-id">
+        <div class="form-group">
+          <label class="form-label" for="editar-nome">Nome do Exercício</label>
+          <input class="form-input" type="text" id="editar-nome">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="btn-cancelar-edicao">Cancelar</button>
+        <button class="btn btn-primary" id="btn-salvar-edicao">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- JavaScript -->
+  <script src="js/auth.js"></script>
+  <script src="js/exercises.js"></script>
+  <script src="js/evolution.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

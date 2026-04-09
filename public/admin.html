@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitTracker — Administração</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .admin-container {
+      max-width: 900px;
+      margin: 60px auto;
+      padding: 0 24px;
+    }
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    .users-table th, .users-table td {
+      padding: 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--cor-borda);
+    }
+    .users-table th {
+      background: rgba(255, 255, 255, 0.05);
+      font-weight: 600;
+      color: var(--cor-texto-secundario);
+      border-top-left-radius: 8px;
+    }
+    .users-table tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .users-table td {
+      color: var(--cor-texto);
+    }
+    .empty-message {
+      text-align: center;
+      padding: 40px;
+      color: var(--cor-texto-secundario);
+    }
+    .aviso {
+      background: var(--cor-amarelo-brilho);
+      border: 1px solid rgba(255, 215, 64, 0.3);
+      color: var(--cor-amarelo);
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  
+  <header class="app-header">
+    <div class="app-header-content" style="justify-content: flex-start; gap: 20px;">
+      <a href="index.html" class="logo">
+        <span class="logo-icon">💪</span>
+        <span class="logo-text">Fit<span class="logo-accent">Tracker</span> <span style="font-size: 0.8rem; color: var(--cor-amarelo);">ADMIN</span></span>
+      </a>
+      <a href="app.html" class="btn btn-outline btn-small" style="margin-left: auto;">Voltar para o App</a>
+    </div>
+  </header>
+
+  <main class="admin-container">
+    <div class="page-header">
+      <h1 class="page-title">Usuários Registrados</h1>
+      <p class="page-subtitle">Lista de todas as contas que utilizam a plataforma.</p>
+    </div>
+
+    <div class="aviso">
+      <strong>⚠️ Segurança:</strong> Devido a fortes políticas de criptografia implementadas pela arquitetura moderna (Bcrypt Hash), as senhas originais dos usuários <strong>não podem</strong> e <strong>jamais poderão</strong> ser lidas do banco de dados, nem mesmo por você como administrador! Somente o usuário sabe qual é.
+    </div>
+
+    <div style="background: var(--gradiente-card); border: 1px solid var(--cor-borda); border-radius: var(--raio-borda); overflow: hidden;">
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nome</th>
+            <th>Email</th>
+            <th>Data de Cadastro</th>
+          </tr>
+        </thead>
+        <tbody id="users-list">
+          <!-- Carregando via JS -->
+          <tr><td colspan="4" class="empty-message">Aguarde, carregando usuários do banco de dados...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+
+  <script>
+    async function carregarUsuarios() {
+      try {
+        const res = await fetch('/api/admin/usuarios');
+        const data = await res.json();
+        
+        const tbody = document.getElementById('users-list');
+        
+        if (data.erro) {
+            tbody.innerHTML = `<tr><td colspan="4" class="empty-message" style="color: var(--cor-vermelho)">Erro: ${data.erro}</td></tr>`;
+            return;
+        }
+
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-message">Nenhum usuário registrado ainda.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(u => {
+            const dataCadastro = new Date(u.criado_em).toLocaleDateString('pt-BR', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+            
+            return `
+            <tr>
+              <td><span style="font-family: monospace; color: var(--cor-texto-terciario);">#${u.id}</span></td>
+              <td style="font-weight: 600;">${u.nome}</td>
+              <td style="color: var(--cor-azul);">${u.email}</td>
+              <td style="font-size: 0.85rem; color: var(--cor-texto-secundario);">${dataCadastro}</td>
+            </tr>
+            `;
+        }).join('');
+
+      } catch(e) {
+          document.getElementById('users-list').innerHTML = `<tr><td colspan="4" class="empty-message" style="color: var(--cor-vermelho)">Erro ao conectar na API.</td></tr>`;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', carregarUsuarios);
+  </script>
+</body>
+</html>

@@ -142,4 +142,21 @@ function configurarAuth() {
   document.getElementById('cadastro-senha').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') btnCadastro.click();
   });
+
+  // Alternar visibilidade de senha
+  document.querySelectorAll('.btn-toggle-password').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-target');
+      const input = document.getElementById(targetId);
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+        btn.title = 'Ocultar senha';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+        btn.title = 'Mostrar senha';
+      }
+    });
+  });
 }

@@ -90,6 +90,18 @@ app.get('/api/usuario', verificarLogin, async (req, res) => {
   res.json(usuario);
 });
 
+// Rota de Administração (Lista todos os usuários)
+// Nota: Em um ambiente real, você deve proteger essa rota (ex: verificarLogin && req.session.usuarioEmail === 'admin@...').
+app.get('/api/admin/usuarios', async (req, res) => {
+  try {
+    const usuarios = await db.all('SELECT id, nome, email, criado_em FROM usuarios ORDER BY criado_em DESC');
+    res.json(usuarios);
+  } catch (err) {
+    console.error('Erro ao buscar usuários:', err);
+    res.status(500).json({ erro: 'Erro interno.' });
+  }
+});
+
 // ============================================
 // EXERCÍCIOS
 // ============================================

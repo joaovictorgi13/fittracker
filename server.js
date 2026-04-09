@@ -204,7 +204,7 @@ app.delete('/api/exercicios/:id', verificarLogin, async (req, res) => {
 
 app.post('/api/series', verificarLogin, async (req, res) => {
   try {
-    const { exercicio_id, carga_kg, repeticoes, tipo, descanso_segundos, notas } = req.body;
+    const { exercicio_id, carga_kg, repeticoes, tipo, descanso_segundos, notas, dropset_detalhes, pico_contracao, pico_contracao_segundos, ajuda } = req.body;
     if (!exercicio_id) return res.status(400).json({ erro: 'ID do exercício é obrigatório.' });
 
     const exercicio = await db.get(
@@ -219,9 +219,15 @@ app.post('/api/series', verificarLogin, async (req, res) => {
     const numero = (maxNum.max || 0) + 1;
 
     const serie = await db.get(
-      `INSERT INTO series_modelo (exercicio_id, numero_serie, carga_kg, repeticoes, tipo, descanso_segundos, notas) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [exercicio_id, numero, carga_kg || 0, repeticoes || 0, tipo || 'valida', descanso_segundos || 60, notas || '']
+      `INSERT INTO series_modelo (exercicio_id, numero_serie, carga_kg, repeticoes, tipo, descanso_segundos, notas, dropset_detalhes, pico_contracao, pico_contracao_segundos, ajuda) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      [
+        exercicio_id, numero, carga_kg || 0, repeticoes || 0, tipo || 'valida', descanso_segundos || 60, notas || '',
+        dropset_detalhes ? JSON.stringify(dropset_detalhes) : '[]',
+        pico_contracao ? 1 : 0,
+        pico_contracao_segundos || 0,
+        ajuda ? 1 : 0
+      ]
     );
     res.json(serie);
   } catch (err) {
@@ -233,7 +239,7 @@ app.post('/api/series', verificarLogin, async (req, res) => {
 app.put('/api/series/:id', verificarLogin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { carga_kg, repeticoes, tipo, descanso_segundos, notas } = req.body;
+    const { carga_kg, repeticoes, tipo, descanso_segundos, notas, dropset_detalhes, pico_contracao, pico_contracao_segundos, ajuda } = req.body;
 
     const serie = await db.get(`
       SELECT sm.* FROM series_modelo sm
@@ -244,14 +250,19 @@ app.put('/api/series/:id', verificarLogin, async (req, res) => {
 
     const atualizada = await db.get(`
       UPDATE series_modelo 
-      SET carga_kg = $1, repeticoes = $2, tipo = $3, descanso_segundos = $4, notas = $5
-      WHERE id = $6 RETURNING *
+      SET carga_kg = $1, repeticoes = $2, tipo = $3, descanso_segundos = $4, notas = $5,
+          dropset_detalhes = $6, pico_contracao = $7, pico_contracao_segundos = $8, ajuda = $9
+      WHERE id = $10 RETURNING *
     `, [
       carga_kg !== undefined ? carga_kg : serie.carga_kg,
       repeticoes !== undefined ? repeticoes : serie.repeticoes,
       tipo || serie.tipo,
       descanso_segundos !== undefined ? descanso_segundos : serie.descanso_segundos,
       notas !== undefined ? notas : serie.notas,
+      dropset_detalhes !== undefined ? JSON.stringify(dropset_detalhes) : serie.dropset_detalhes,
+      pico_contracao !== undefined ? (pico_contracao ? 1 : 0) : serie.pico_contracao,
+      pico_contracao_segundos !== undefined ? pico_contracao_segundos : serie.pico_contracao_segundos,
+      ajuda !== undefined ? (ajuda ? 1 : 0) : serie.ajuda,
       id
     ]);
     res.json(atualizada);
@@ -304,9 +315,16 @@ app.post('/api/sessoes', verificarLogin, async (req, res) => {
 
     for (const s of series) {
       await db.run(
-        `INSERT INTO series_realizadas (sessao_id, exercicio_id, nome_exercicio, numero_serie, carga_kg, repeticoes, tipo, concluida, notas)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [sessao.id, s.exercicio_id, s.nome_exercicio, s.numero_serie, s.carga_kg || 0, s.repeticoes || 0, s.tipo || 'valida', s.concluida !== undefined ? (s.concluida ? 1 : 0) : 1, s.notas || '']
+        `INSERT INTO series_realizadas (sessao_id, exercicio_id, nome_exercicio, numero_serie, carga_kg, repeticoes, tipo, concluida, notas, dropset_detalhes, pico_contracao, pico_contracao_segundos, ajuda)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [
+          sessao.id, s.exercicio_id, s.nome_exercicio, s.numero_serie, s.carga_kg || 0, s.repeticoes || 0, s.tipo || 'valida', 
+          s.concluida !== undefined ? (s.concluida ? 1 : 0) : 1, s.notas || '',
+          s.dropset_detalhes ? (typeof s.dropset_detalhes === 'string' ? s.dropset_detalhes : JSON.stringify(s.dropset_detalhes)) : '[]',
+          s.pico_contracao ? 1 : 0,
+          s.pico_contracao_segundos || 0,
+          s.ajuda ? 1 : 0
+        ]
       );
     }
     res.json({ sucesso: true, sessao_id: sessao.id });

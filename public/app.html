@@ -183,6 +183,20 @@
               </div>
             </div>
             <div class="legend-item">
+              <span class="legend-badge badge-crescente">↗</span>
+              <div>
+                <strong>Pirâmide Crescente</strong>
+                <p>Aumenta a carga e diminui as repetições a cada série</p>
+              </div>
+            </div>
+            <div class="legend-item">
+              <span class="legend-badge badge-decrescente">↘</span>
+              <div>
+                <strong>Pirâmide Decrescente</strong>
+                <p>Diminui a carga e aumenta as repetições a cada série</p>
+              </div>
+            </div>
+            <div class="legend-item">
               <span class="legend-badge badge-cluster">C</span>
               <div>
                 <strong>Cluster Set</strong>
@@ -296,6 +310,66 @@
       <div class="modal-footer">
         <button class="btn btn-outline" id="btn-cancelar-edicao">Cancelar</button>
         <button class="btn btn-primary" id="btn-salvar-edicao">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- MODAL DE CONFIGURAÇÕES AVANÇADAS DA SÉRIE -->
+  <!-- ============================================ -->
+  <div class="modal-overlay hidden" id="modal-avancado-overlay">
+    <div class="modal" id="modal-avancado">
+      <div class="modal-header">
+        <h3 class="modal-title">Detalhes da Série</h3>
+        <button class="modal-close" id="modal-avancado-close">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+        <input type="hidden" id="avancado-serie-id">
+        <input type="hidden" id="avancado-contexto">
+        
+        <!-- Dropset Config -->
+        <div id="avancado-dropset-section" class="form-group hidden">
+          <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Degraus do Dropset</span>
+            <button class="btn btn-outline btn-tiny" id="btn-add-drop">+ Degrau</button>
+          </label>
+          <div id="avancado-drops-list" style="display:flex; flex-direction:column; gap:8px;">
+            <!-- Injetado via JS -->
+          </div>
+          <p style="font-size: 0.75rem; color: var(--cor-texto-terciario); margin-top: 5px;">
+            Adicione os pesos e repetições de cada quebra de carga deste Dropset.
+          </p>
+        </div>
+
+        <!-- Pico de Contração -->
+        <div class="form-group" style="margin-bottom: 15px;">
+          <label class="form-label checkbox-label" style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom: 0;">
+            <input type="checkbox" id="avancado-pico-checkbox" style="width:16px; height:16px; accent-color:var(--cor-primaria);">
+            Pico de Contração
+          </label>
+          <div id="avancado-pico-segundos-container" class="hidden" style="display:flex; align-items:center; gap:8px; margin-top:8px; padding-left:24px;">
+            <input class="form-input-mini" type="number" id="avancado-pico-segundos" min="1" value="2" style="width: 60px;"> 
+            <span style="font-size: 0.85rem; color: var(--cor-texto-secundario);">segundos após cada repetição</span>
+          </div>
+        </div>
+
+        <!-- Com Ajuda -->
+        <div class="form-group" style="margin-bottom: 15px;">
+          <label class="form-label checkbox-label" style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom: 0;">
+            <input type="checkbox" id="avancado-ajuda-checkbox" style="width:16px; height:16px; accent-color:var(--cor-primaria);">
+            Série com ajuda (spotter)
+          </label>
+        </div>
+
+        <!-- Observações -->
+        <div class="form-group">
+          <label class="form-label" for="avancado-notas">Observações (Opcional)</label>
+          <textarea class="form-input" id="avancado-notas" rows="3" placeholder="Ex: Última repetição roubada, dor na lombar..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="btn-cancelar-avancado">Cancelar</button>
+        <button class="btn btn-primary" id="btn-salvar-avancado">Salvar</button>
       </div>
     </div>
   </div>

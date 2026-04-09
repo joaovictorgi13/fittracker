@@ -76,7 +76,9 @@ function nomeTipo(tipo) {
     'valida': 'Válida',
     'aquecimento': 'Aquecimento',
     'dropset': 'Dropset',
-    'cluster': 'Cluster Set'
+    'cluster': 'Cluster Set',
+    'piramide_crescente': 'P. Crescente',
+    'piramide_decrescente': 'P. Decrescente'
   };
   return nomes[tipo] || tipo;
 }
@@ -86,7 +88,7 @@ function badgeClasse(tipo) {
 }
 
 function letraTipo(tipo) {
-  const letras = { 'valida': 'V', 'aquecimento': 'A', 'dropset': 'D', 'cluster': 'C' };
+  const letras = { 'valida': 'V', 'aquecimento': 'A', 'dropset': 'D', 'cluster': 'C', 'piramide_crescente': '↗', 'piramide_decrescente': '↘' };
   return letras[tipo] || '?';
 }
 
@@ -143,6 +145,8 @@ async function renderizarExercicios() {
                     <option value="aquecimento" ${s.tipo === 'aquecimento' ? 'selected' : ''}>Aquecimento</option>
                     <option value="dropset" ${s.tipo === 'dropset' ? 'selected' : ''}>Dropset</option>
                     <option value="cluster" ${s.tipo === 'cluster' ? 'selected' : ''}>Cluster Set</option>
+                    <option value="piramide_crescente" ${s.tipo === 'piramide_crescente' ? 'selected' : ''}>P. Crescente</option>
+                    <option value="piramide_decrescente" ${s.tipo === 'piramide_decrescente' ? 'selected' : ''}>P. Decrescente</option>
                   </select>
                 </td>
                 <td>
@@ -158,6 +162,7 @@ async function renderizarExercicios() {
                     onchange="atualizarSerie(${s.id}, 'descanso_segundos', parseInt(this.value) || 0)"> s
                 </td>
                 <td>
+                  <button class="btn btn-outline btn-icon btn-tiny" onclick="abrirModalAvancado(${s.exercicio_id}, ${s.id})" title="Configurações Avançadas">⚙️</button>
                   <button class="btn btn-danger btn-icon btn-tiny" onclick="removerSerie(${s.id})" title="Remover série">✕</button>
                 </td>
               </tr>
@@ -318,4 +323,173 @@ async function confirmarExclusao(id, nome) {
   await excluirExercicio(id);
   mostrarToast(`"${nome}" excluído!`, 'success');
   renderizarExercicios();
+}
+
+// ============================================
+// Modal de Configurações Avançadas da Série
+// ============================================
+
+let configuracaoAvancadaAtual = null;
+
+async function abrirModalAvancado(exercicioId, serieId) {
+  const exercicios = await buscarExercicios(diaAtual);
+  const exercicio = exercicios.find(e => e.id === exercicioId);
+  if (!exercicio) return;
+  const serie = exercicio.series.find(s => s.id === serieId);
+  if (!serie) return;
+
+  configuracaoAvancadaAtual = { serieId: serie.id };
+
+  document.getElementById('avancado-serie-id').value = serie.id;
+  document.getElementById('avancado-contexto').value = 'modelo'; // Contexto do exercicio.js
+  
+  // Pico de Contraçao
+  document.getElementById('avancado-pico-checkbox').checked = !!serie.pico_contracao;
+  document.getElementById('avancado-pico-segundos').value = serie.pico_contracao_segundos || 2;
+  document.getElementById('avancado-pico-segundos-container').style.display = serie.pico_contracao ? 'flex' : 'none';
+
+  // Ajuda
+  document.getElementById('avancado-ajuda-checkbox').checked = !!serie.ajuda;
+
+  // Notas
+  document.getElementById('avancado-notas').value = serie.notas || '';
+
+  // Dropset logic
+  const dropsetSection = document.getElementById('avancado-dropset-section');
+  if (serie.tipo === 'dropset') {
+    dropsetSection.classList.remove('hidden');
+    let drops = [];
+    try {
+      drops = typeof serie.dropset_detalhes === 'string' ? JSON.parse(serie.dropset_detalhes || '[]') : serie.dropset_detalhes || [];
+    } catch (e) {
+      drops = [];
+    }
+    renderizarListaDrops(drops);
+  } else {
+    dropsetSection.classList.add('hidden');
+  }
+
+  document.getElementById('modal-avancado-overlay').classList.remove('hidden');
+}
+
+function renderizarListaDrops(drops) {
+  const list = document.getElementById('avancado-drops-list');
+  if (drops.length === 0) {
+    list.innerHTML = '<div style="font-size:0.8rem;color:var(--cor-texto-terciario);">Nenhum degrau adicionado.</div>';
+    return;
+  }
+  list.innerHTML = drops.map((drop, index) => `
+    <div class="drop-item" style="display:flex; gap:8px; align-items:center;">
+      <span style="color:var(--cor-roxo); font-weight:bold;">#${index+1}</span>
+      <input type="number" class="form-input-mini drop-carga" value="${drop.carga}" placeholder="kg" style="width:65px;"> kg
+      <input type="number" class="form-input-mini drop-reps" value="${drop.reps}" placeholder="reps" style="width:60px;"> reps
+      <button class="btn btn-danger btn-icon btn-tiny" onclick="removerDrop(${index})" type="button">✕</button>
+    </div>
+  `).join('');
+}
+
+function adicionarNovoDrop() {
+  const list = document.getElementById('avancado-drops-list');
+  const items = list.querySelectorAll('.drop-item');
+  let drops = [];
+  items.forEach(item => {
+    drops.push({
+      carga: parseFloat(item.querySelector('.drop-carga').value) || 0,
+      reps: parseInt(item.querySelector('.drop-reps').value) || 0
+    });
+  });
+  
+  // Clona o último para facilitar
+  if (drops.length > 0) {
+    drops.push({...drops[drops.length - 1]});
+  } else {
+    drops.push({carga: 0, reps: 0});
+  }
+  renderizarListaDrops(drops);
+}
+
+function removerDrop(index) {
+  const list = document.getElementById('avancado-drops-list');
+  const items = list.querySelectorAll('.drop-item');
+  let drops = [];
+  items.forEach(item => {
+    drops.push({
+      carga: parseFloat(item.querySelector('.drop-carga').value) || 0,
+      reps: parseInt(item.querySelector('.drop-reps').value) || 0
+    });
+  });
+  drops.splice(index, 1);
+  renderizarListaDrops(drops);
+}
+
+// Eventos Globais Modal Avançado - Chamados apenas uma vez
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('avancado-pico-checkbox').addEventListener('change', (e) => {
+    document.getElementById('avancado-pico-segundos-container').style.display = e.target.checked ? 'flex' : 'none';
+  });
+
+  document.getElementById('btn-add-drop').addEventListener('click', (e) => {
+    e.preventDefault();
+    adicionarNovoDrop();
+  });
+
+  document.getElementById('modal-avancado-close').addEventListener('click', fecharModalAvancado);
+  document.getElementById('btn-cancelar-avancado').addEventListener('click', fecharModalAvancado);
+  document.getElementById('modal-avancado-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'modal-avancado-overlay') fecharModalAvancado();
+  });
+
+  document.getElementById('btn-salvar-avancado').addEventListener('click', async () => {
+    if (!configuracaoAvancadaAtual) return;
+    const contexto = document.getElementById('avancado-contexto').value;
+    
+    // Obter dados do Form
+    const pico_contracao = document.getElementById('avancado-pico-checkbox').checked ? 1 : 0;
+    const pico_contracao_segundos = parseInt(document.getElementById('avancado-pico-segundos').value) || 0;
+    const ajuda = document.getElementById('avancado-ajuda-checkbox').checked ? 1 : 0;
+    const notas = document.getElementById('avancado-notas').value;
+    
+    let drops = [];
+    if (!document.getElementById('avancado-dropset-section').classList.contains('hidden')) {
+      const items = document.getElementById('avancado-drops-list').querySelectorAll('.drop-item');
+      items.forEach(item => {
+        drops.push({
+          carga: parseFloat(item.querySelector('.drop-carga').value) || 0,
+          reps: parseInt(item.querySelector('.drop-reps').value) || 0
+        });
+      });
+    }
+
+    if (contexto === 'modelo') {
+      const serieId = document.getElementById('avancado-serie-id').value;
+      await editarSerie(serieId, {
+        pico_contracao,
+        pico_contracao_segundos,
+        ajuda,
+        notas,
+        dropset_detalhes: JSON.stringify(drops) // a API sabe lidar com dropset_detalhes formatado string ou obj
+      });
+      mostrarToast('Configurações da série atualizadas!', 'success');
+      renderizarExercicios();
+    } else if (contexto === 'registro') {
+      // Atualizar valores do HTML na tab registrar
+      const serieId = document.getElementById('avancado-serie-id').value; // Aqui vai ser uma class de id gerada? Melhor seria a linha da tabela na tela
+      const row = configuracaoAvancadaAtual.rowElement;
+      if (row) {
+        row.dataset.pico = pico_contracao;
+        row.dataset.picoSegundos = pico_contracao_segundos;
+        row.dataset.ajuda = ajuda;
+        row.dataset.notas = notas;
+        row.dataset.drops = JSON.stringify(drops);
+        mostrarToast('Opções prontas para gravação!', 'info');
+      }
+    }
+    
+    fecharModalAvancado();
+  });
+});
+
+function fecharModalAvancado() {
+  document.getElementById('modal-avancado-overlay').classList.add('hidden');
+  configuracaoAvancadaAtual = null;
 }

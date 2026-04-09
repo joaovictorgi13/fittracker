@@ -76,6 +76,13 @@ function configurarRegistro() {
       const tipo = el.querySelector('.reg-tipo').value;
       const concluida = el.querySelector('.reg-concluida').checked;
 
+      const pico_contracao = parseInt(el.dataset.pico) || 0;
+      const pico_contracao_segundos = parseInt(el.dataset.picoSegundos) || 0;
+      const ajuda = parseInt(el.dataset.ajuda) || 0;
+      const notas = el.dataset.notas || '';
+      let drops = [];
+      try { drops = JSON.parse(el.dataset.drops || '[]'); } catch(e){}
+
       if (carga > 0 || reps > 0) {
         series.push({
           exercicio_id: parseInt(el.dataset.exercicioId),
@@ -84,7 +91,12 @@ function configurarRegistro() {
           carga_kg: carga,
           repeticoes: reps,
           tipo: tipo,
-          concluida: concluida
+          concluida: concluida,
+          pico_contracao,
+          pico_contracao_segundos,
+          ajuda,
+          notas,
+          dropset_detalhes: drops
         });
       }
     });
@@ -146,11 +158,15 @@ async function carregarExerciciosRegistro(dia) {
               <th>Tipo</th>
               <th>Carga (kg)</th>
               <th>Reps</th>
+              <th style="width:50px"></th>
             </tr>
           </thead>
           <tbody>
             ${ex.series.map(s => `
-              <tr class="reg-serie-row" data-exercicio-id="${ex.id}" data-nome-exercicio="${ex.nome}" data-numero-serie="${s.numero_serie}">
+              <tr class="reg-serie-row" data-exercicio-id="${ex.id}" data-nome-exercicio="${ex.nome}" data-numero-serie="${s.numero_serie}"
+                  data-pico="${s.pico_contracao||0}" data-pico-segundos="${s.pico_contracao_segundos||0}" 
+                  data-ajuda="${s.ajuda||0}" data-notas="${(s.notas||'').replace(/"/g, '&quot;')}" 
+                  data-drops='${typeof s.dropset_detalhes==="string"?s.dropset_detalhes:JSON.stringify(s.dropset_detalhes||[])}'>
                 <td>
                   <input type="checkbox" class="reg-concluida" checked style="width:18px; height:18px; accent-color: var(--cor-primaria); cursor:pointer;">
                 </td>
@@ -163,6 +179,8 @@ async function carregarExerciciosRegistro(dia) {
                     <option value="aquecimento" ${s.tipo === 'aquecimento' ? 'selected' : ''}>Aquecimento</option>
                     <option value="dropset" ${s.tipo === 'dropset' ? 'selected' : ''}>Dropset</option>
                     <option value="cluster" ${s.tipo === 'cluster' ? 'selected' : ''}>Cluster</option>
+                    <option value="piramide_crescente" ${s.tipo === 'piramide_crescente' ? 'selected' : ''}>P. Crescente</option>
+                    <option value="piramide_decrescente" ${s.tipo === 'piramide_decrescente' ? 'selected' : ''}>P. Decrescente</option>
                   </select>
                 </td>
                 <td>
@@ -170,6 +188,9 @@ async function carregarExerciciosRegistro(dia) {
                 </td>
                 <td>
                   <input class="form-input-mini reg-reps" type="number" value="${s.repeticoes}" min="0">
+                </td>
+                <td>
+                  <button class="btn btn-outline btn-icon btn-tiny" onclick="abrirModalAvancadoRegistro(this)" title="Configurações Avançadas" type="button">⚙️</button>
                 </td>
               </tr>
             `).join('')}
@@ -381,15 +402,37 @@ async function carregarHistorico() {
           <div class="history-exercise-group">
             <div class="history-exercise-title">${nome}</div>
             <div class="history-series-list">
-              ${series.map(s => `
-                <div class="history-series-row">
-                  <span class="series-number ${badgeClasse(s.tipo)}" style="width:24px;height:24px;font-size:0.7rem;">${s.numero_serie}</span>
-                  <span class="tipo-badge ${badgeClasse(s.tipo)}">${nomeTipo(s.tipo)}</span>
-                  <span>⚡ ${s.carga_kg}kg</span>
-                  <span>× ${s.repeticoes} reps</span>
-                  ${!s.concluida ? '<span style="color:var(--cor-vermelho);">❌ Não concluída</span>' : ''}
+              ${series.map(s => {
+                let extraHtml = '';
+                if (s.pico_contracao) extraHtml += `<div style="color:var(--cor-primaria);font-size:0.75rem;margin-top:2px;">⏱ Pico de Contração: ${s.pico_contracao_segundos}s</div>`;
+                if (s.ajuda) extraHtml += `<div style="color:var(--cor-amarelo);font-size:0.75rem;margin-top:2px;">🤝 Com ajuda</div>`;
+                if (s.notas) extraHtml += `<div style="color:var(--cor-texto-terciario);font-size:0.75rem;margin-top:2px;">📝 Obs: ${s.notas}</div>`;
+                
+                let dropsHtml = '';
+                if (s.tipo === 'dropset' && s.dropset_detalhes) {
+                   try {
+                     const drops = typeof s.dropset_detalhes === 'string' ? JSON.parse(s.dropset_detalhes) : s.dropset_detalhes;
+                     if (drops.length > 0) {
+                       dropsHtml = '<div style="padding-left:36px; margin-top:6px; font-size:0.75rem; color:var(--cor-texto-terciario);">';
+                       dropsHtml += drops.map((d,i) => `<span style="color:var(--cor-roxo);">Drop #${i+1}:</span> ${d.carga}kg × ${d.reps} reps`).join('<br>');
+                       dropsHtml += '</div>';
+                     }
+                   } catch(e){}
+                }
+
+                return `
+                <div class="history-series-row" style="flex-direction:column; align-items:flex-start; margin-bottom:12px;">
+                  <div style="display:flex; align-items:center; gap:12px; width:100%;">
+                    <span class="series-number ${badgeClasse(s.tipo)}" style="width:24px;height:24px;font-size:0.7rem;">${s.numero_serie}</span>
+                    <span class="tipo-badge ${badgeClasse(s.tipo)}">${nomeTipo(s.tipo)}</span>
+                    <span>⚡ ${s.carga_kg}kg</span>
+                    <span>× ${s.repeticoes} reps</span>
+                    ${!s.concluida ? '<span style="color:var(--cor-vermelho);">❌ Não concluída</span>' : ''}
+                  </div>
+                  ${extraHtml ? `<div style="padding-left:36px; margin-top:4px;">${extraHtml}</div>` : ''}
+                  ${dropsHtml}
                 </div>
-              `).join('')}
+              `}).join('')}
             </div>
           </div>
         `).join('')}
@@ -397,3 +440,35 @@ async function carregarHistorico() {
     `;
   }).join('');
 }
+
+// ============================================
+// Modal Registro
+// ============================================
+window.abrirModalAvancadoRegistro = function(btn) {
+  const row = btn.closest('tr');
+  const tipo = row.querySelector('.reg-tipo').value;
+  
+  configuracaoAvancadaAtual = { rowElement: row };
+
+  document.getElementById('avancado-serie-id').value = row.dataset.numeroSerie;
+  document.getElementById('avancado-contexto').value = 'registro';
+  
+  document.getElementById('avancado-pico-checkbox').checked = row.dataset.pico == '1';
+  document.getElementById('avancado-pico-segundos').value = row.dataset.picoSegundos || 2;
+  document.getElementById('avancado-pico-segundos-container').style.display = row.dataset.pico == '1' ? 'flex' : 'none';
+
+  document.getElementById('avancado-ajuda-checkbox').checked = row.dataset.ajuda == '1';
+  document.getElementById('avancado-notas').value = row.dataset.notas || '';
+
+  const dropsetSection = document.getElementById('avancado-dropset-section');
+  if (tipo === 'dropset') {
+    dropsetSection.classList.remove('hidden');
+    let drops = [];
+    try { drops = JSON.parse(row.dataset.drops || '[]'); } catch(e){}
+    renderizarListaDrops(drops); // Depende de exercises.js, deve estar acessível via global
+  } else {
+    dropsetSection.classList.add('hidden');
+  }
+
+  document.getElementById('modal-avancado-overlay').classList.remove('hidden');
+};

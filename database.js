@@ -96,7 +96,28 @@ const db = {
       await pool.query(sql);
     }
 
-    console.log('✅ Tabelas do banco criadas/verificadas.');
+    // Migrações para garantir que colunas de recursos avançados existam
+    const colunasAvancadas = [
+      `ALTER TABLE series_modelo ADD COLUMN IF NOT EXISTS dropset_detalhes TEXT DEFAULT '[]'`,
+      `ALTER TABLE series_modelo ADD COLUMN IF NOT EXISTS pico_contracao INTEGER DEFAULT 0`,
+      `ALTER TABLE series_modelo ADD COLUMN IF NOT EXISTS pico_contracao_segundos INTEGER DEFAULT 0`,
+      `ALTER TABLE series_modelo ADD COLUMN IF NOT EXISTS ajuda INTEGER DEFAULT 0`,
+      
+      `ALTER TABLE series_realizadas ADD COLUMN IF NOT EXISTS dropset_detalhes TEXT DEFAULT '[]'`,
+      `ALTER TABLE series_realizadas ADD COLUMN IF NOT EXISTS pico_contracao INTEGER DEFAULT 0`,
+      `ALTER TABLE series_realizadas ADD COLUMN IF NOT EXISTS pico_contracao_segundos INTEGER DEFAULT 0`,
+      `ALTER TABLE series_realizadas ADD COLUMN IF NOT EXISTS ajuda INTEGER DEFAULT 0`
+    ];
+
+    for (const sql of colunasAvancadas) {
+      try {
+        await pool.query(sql);
+      } catch (e) {
+        console.warn('Aviso de migração:', e.message);
+      }
+    }
+
+    console.log('✅ Tabelas do banco criadas/verificadas e migrações aplicadas.');
   }
 };
 

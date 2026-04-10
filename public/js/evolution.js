@@ -29,114 +29,238 @@ async function buscarEvolucao() {
 }
 
 // ============================================
-// Configurar Registro de Treino
+// Configurar Registro Semanal
 // ============================================
 
-function configurarRegistro() {
-  const selectDia = document.getElementById('registro-dia');
-  const dataInput = document.getElementById('registro-data');
-
-  // Data de hoje
-  const hoje = new Date().toISOString().split('T')[0];
-  dataInput.value = hoje;
-
-  // Detectar dia da semana
-  const diasMap = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-  const diaSemana = diasMap[new Date().getDay()];
-  selectDia.value = diaSemana;
-
-  selectDia.addEventListener('change', () => carregarExerciciosRegistro(selectDia.value));
-
-  dataInput.addEventListener('change', () => {
-    const data = new Date(dataInput.value + 'T12:00:00');
-    const dia = diasMap[data.getDay()];
-    selectDia.value = dia;
-    carregarExerciciosRegistro(dia);
-  });
-
-  carregarExerciciosRegistro(diaSemana);
-
-  // Botão registrar
-  document.getElementById('btn-registrar-treino').addEventListener('click', async () => {
-    const data = dataInput.value;
-    if (!data) {
-      mostrarToast('Selecione a data do treino.', 'error');
-      return;
-    }
-
-    const dia = selectDia.value;
-
-    // Coletar todas as séries da interface
-    const seriesElements = document.querySelectorAll('.reg-serie-row');
-    const series = [];
-
-    seriesElements.forEach(el => {
-      const carga = parseFloat(el.querySelector('.reg-carga').value) || 0;
-      const reps = parseInt(el.querySelector('.reg-reps').value) || 0;
-      const tipo = el.querySelector('.reg-tipo').value;
-      const concluida = el.querySelector('.reg-concluida').checked;
-
-      const pico_contracao = parseInt(el.dataset.pico) || 0;
-      const pico_contracao_segundos = parseInt(el.dataset.picoSegundos) || 0;
-      const ajuda = parseInt(el.dataset.ajuda) || 0;
-      const notas = el.dataset.notas || '';
-      let drops = [];
-      try { drops = JSON.parse(el.dataset.drops || '[]'); } catch(e){}
-
-      if (carga > 0 || reps > 0) {
-        series.push({
-          exercicio_id: parseInt(el.dataset.exercicioId),
-          nome_exercicio: el.dataset.nomeExercicio,
-          numero_serie: parseInt(el.dataset.numeroSerie),
-          carga_kg: carga,
-          repeticoes: reps,
-          tipo: tipo,
-          concluida: concluida,
-          pico_contracao,
-          pico_contracao_segundos,
-          ajuda,
-          notas,
-          dropset_detalhes: drops
-        });
-      }
-    });
-
-    if (series.length === 0) {
-      mostrarToast('Preencha pelo menos uma série.', 'error');
-      return;
-    }
-
-    const resultado = await registrarSessao({ data, dia_semana: dia, series });
-
-    if (resultado.erro) {
-      mostrarToast(resultado.erro, 'error');
-      return;
-    }
-
-    mostrarToast(`Treino registrado com ${series.length} séries!`, 'success');
-    carregarEvolucao();
-    carregarHistorico();
-  });
+async function buscarSemanas() {
+  const resposta = await fetch('/api/semanas');
+  return await resposta.json();
 }
 
-// Carregar exercícios do dia para tela de registro
-async function carregarExerciciosRegistro(dia) {
-  const container = document.getElementById('register-exercises');
-  const exercicios = await buscarExercicios(dia);
+let semanasGlobais = [];
 
-  if (exercicios.length === 0) {
+function configurarRegistro() {
+  const btnNovaSemana = document.getElementById('btn-nova-semana');
+  if (btnNovaSemana) {
+    btnNovaSemana.addEventListener('click', () => {
+      // Cria virtualmente uma nova semana em memoria e re-renderiza
+      let maxSem = 0;
+      if (semanasGlobais.length > 0) {
+        maxSem = semanasGlobais[0].numero_semana;
+      }
+      semanasGlobais.unshift({
+        numero_semana: maxSem + 1,
+        sessoes: []
+      });
+      renderizarSemanas();
+    });
+  }
+
+  const modalClose = document.getElementById('modal-registro-close');
+  const btnCancelar = document.getElementById('btn-cancelar-registro');
+  const btnSalvar = document.getElementById('btn-salvar-registro');
+
+  if (modalClose) modalClose.addEventListener('click', fecharModalRegistro);
+  if (btnCancelar) btnCancelar.addEventListener('click', fecharModalRegistro);
+
+  if (btnSalvar) {
+    btnSalvar.addEventListener('click', async () => {
+      const sem = document.getElementById('registro-semana-atual').value;
+      const dia = document.getElementById('registro-dia-atual').value;
+      const dataInput = document.getElementById('registro-data').value;
+      
+      const configDia = diasConfiguracoes.find(c => c.dia_semana === dia) || { is_descanso: 0 };
+
+      const payload = {
+        data: dataInput || new Date().toISOString().split('T')[0],
+        dia_semana: dia,
+        numero_semana: parseInt(sem),
+        observacoes: '',
+        series: []
+      };
+
+      if (configDia.is_descanso === 1) {
+        // Apenas salva a sessao vazia (sem series) como marca de "done"
+        payload.series = [];
+      } else {
+        const seriesElements = document.querySelectorAll('.reg-serie-row');
+        seriesElements.forEach(el => {
+          const carga = parseFloat(el.querySelector('.reg-carga').value) || 0;
+          const reps = parseInt(el.querySelector('.reg-reps').value) || 0;
+          const tipo = el.querySelector('.reg-tipo').value;
+          const concluida = el.querySelector('.reg-concluida').checked;
+
+          const pico_contracao = parseInt(el.dataset.pico) || 0;
+          const pico_contracao_segundos = parseInt(el.dataset.picoSegundos) || 0;
+          const ajuda = parseInt(el.dataset.ajuda) || 0;
+          const notas = el.dataset.notas || '';
+          let drops = [];
+          try { drops = JSON.parse(el.dataset.drops || '[]'); } catch(e){}
+
+          if (carga > 0 || reps > 0) {
+            payload.series.push({
+              exercicio_id: parseInt(el.dataset.exercicioId),
+              nome_exercicio: el.dataset.nomeExercicio,
+              numero_serie: parseInt(el.dataset.numeroSerie),
+              carga_kg: carga,
+              repeticoes: reps,
+              tipo: tipo,
+              concluida: concluida,
+              pico_contracao,
+              pico_contracao_segundos,
+              ajuda,
+              notas,
+              dropset_detalhes: drops
+            });
+          }
+        });
+
+        if (payload.series.length === 0) {
+          mostrarToast('Preencha pelo menos uma série.', 'error');
+          return;
+        }
+      }
+
+      const res = await registrarSessao(payload);
+      if (res.erro) {
+        mostrarToast(res.erro, 'error');
+        return;
+      }
+
+      mostrarToast(configDia.is_descanso === 1 ? 'Descanso registrado!' : 'Treino registrado!', 'success');
+      fecharModalRegistro();
+      carregarTodasSemanas();
+      carregarEvolucao();
+    });
+  }
+}
+
+async function carregarTodasSemanas() {
+  semanasGlobais = await buscarSemanas();
+  renderizarSemanas();
+}
+
+function renderizarSemanas() {
+  const container = document.getElementById('semanas-container');
+  if (!container) return;
+
+  if (semanasGlobais.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <span class="empty-icon">📋</span>
-        <p class="empty-text">Nenhum exercício para este dia.</p>
-        <p class="empty-hint">Vá até "Meus Treinos" para montar seu treino.</p>
-      </div>
-    `;
+        <span class="empty-icon">📅</span>
+        <p class="empty-text">Nenhuma semana iniciada.</p>
+        <p class="empty-hint">Clique em "+ Nova Semana" para começar!</p>
+      </div>`;
     return;
   }
 
-  container.innerHTML = exercicios.map(ex => {
-    if (ex.series.length === 0) {
+  const diasOrdem = ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'];
+  const diasLabel = { segunda: 'Seg', terca: 'Ter', quarta: 'Qua', quinta: 'Qui', sexta: 'Sex', sabado: 'Sáb', domingo: 'Dom' };
+
+  let html = '';
+  for (const semana of semanasGlobais) {
+    
+    // Calcula completado
+    let diasCompletos = 0;
+    
+    let diasHTML = '';
+    for (const d of diasOrdem) {
+      const config = diasConfiguracoes.find(c => c.dia_semana === d) || { nome_rotina: '', is_descanso: 0 };
+      const sessaoSalva = semana.sessoes.find(s => s.dia_semana === d);
+      const isConcluido = !!sessaoSalva;
+      
+      if (isConcluido) diasCompletos++;
+
+      let classePilha = isConcluido ? 'border: 2px solid var(--cor-verde);' : 'border: 1px solid var(--cor-borda);';
+      let icon = isConcluido ? '✅' : '⏳';
+      
+      let badge = '';
+      if (config.is_descanso) {
+        badge = '<span style="font-size: 0.7rem; background: rgba(var(--cor-vermelho-rgb),0.2); color: var(--cor-vermelho); padding: 2px 6px; border-radius: 4px;">Descanso</span>';
+      } else if (config.nome_rotina) {
+        badge = `<span style="font-size: 0.7rem; background: rgba(var(--cor-primaria-rgb),0.2); color: var(--cor-primaria); padding: 2px 6px; border-radius: 4px;">${config.nome_rotina}</span>`;
+      }
+
+      diasHTML += `
+        <div onclick="abrirRegistroDia(${semana.numero_semana}, '${d}')" style="cursor:pointer; background: var(--cor-superficie); padding: 12px; border-radius: 8px; ${classePilha} flex: 1; min-width: 80px; text-align: center; display:flex; flex-direction:column; gap:4px; align-items:center;">
+          <strong style="color: var(--cor-texto); text-transform: capitalize;">${diasLabel[d]}</strong>
+          ${badge}
+          <div style="font-size: 1.2rem; margin-top:5px;">${icon}</div>
+        </div>
+      `;
+    }
+
+    const semanaCompleta = diasCompletos === 7;
+
+    html += `
+      <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--cor-borda); padding: 15px; border-radius: 12px; margin-bottom: 10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+          <h3 style="margin:0; font-size: 1.1rem; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" onclick="return false;" style="width:20px;height:20px; accent-color:var(--cor-verde);" ${semanaCompleta ? 'checked' : ''}>
+            Semana ${semana.numero_semana}
+          </h3>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          ${diasHTML}
+        </div>
+      </div>
+    `;
+  }
+  container.innerHTML = html;
+}
+
+async function abrirRegistroDia(numSemana, dia) {
+  document.getElementById('modal-registro-dia').classList.remove('hidden');
+  document.getElementById('registro-semana-atual').value = numSemana;
+  document.getElementById('registro-dia-atual').value = dia;
+  document.getElementById('registro-modal-titulo').textContent = `Semana ${numSemana} - ${dia.toUpperCase()}`;
+  
+  const dataInput = document.getElementById('registro-data');
+  const containerEx = document.getElementById('register-exercises');
+  const msgDescanso = document.getElementById('registro-dia-descanso-msg');
+
+  // Checa se já tem dados salvos na memória local para essa semana
+  const semanaDados = semanasGlobais.find(s => s.numero_semana === numSemana);
+  const sessaoSalva = semanaDados ? semanaDados.sessoes.find(s => s.dia_semana === dia) : null;
+
+  dataInput.value = sessaoSalva ? sessaoSalva.data : new Date().toISOString().split('T')[0];
+
+  const configDia = diasConfiguracoes.find(c => c.dia_semana === dia) || { is_descanso: 0 };
+  
+  if (configDia.is_descanso === 1) {
+    msgDescanso.classList.remove('hidden');
+    containerEx.innerHTML = '';
+    return;
+  } else {
+    msgDescanso.classList.add('hidden');
+  }
+
+  // Busca exercícios da base
+  const exerciciosBase = await buscarExercicios(dia);
+
+  if (exerciciosBase.length === 0) {
+    containerEx.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">📋</span>
+        <p class="empty-text">Nenhum exercício na base.</p>
+        <p class="empty-hint">Vá na aba "Meus Treinos" e adicione exercícios para este dia.</p>
+      </div>`;
+    return;
+  }
+
+  containerEx.innerHTML = exerciciosBase.map(ex => {
+    // Para cada exercicio base, ver se tem algo feito na sessao
+    let seriesRenderizar = ex.series;
+
+    if (sessaoSalva) {
+      // Se já tem salvo, mistura: pegamos os registros salvos pra esse id
+      const salvos = sessaoSalva.series.filter(s => s.exercicio_id === ex.id);
+      if (salvos.length > 0) {
+        seriesRenderizar = salvos;
+      }
+    }
+
+    if (seriesRenderizar.length === 0) {
       return `
         <div class="register-exercise-card">
           <div class="register-exercise-header">${ex.nome}</div>
@@ -162,43 +286,51 @@ async function carregarExerciciosRegistro(dia) {
             </tr>
           </thead>
           <tbody>
-            ${ex.series.map(s => `
-              <tr class="reg-serie-row" data-exercicio-id="${ex.id}" data-nome-exercicio="${ex.nome}" data-numero-serie="${s.numero_serie}"
-                  data-pico="${s.pico_contracao||0}" data-pico-segundos="${s.pico_contracao_segundos||0}" 
-                  data-ajuda="${s.ajuda||0}" data-notas="${(s.notas||'').replace(/"/g, '&quot;')}" 
-                  data-drops='${typeof s.dropset_detalhes==="string"?s.dropset_detalhes:JSON.stringify(s.dropset_detalhes||[])}'>
-                <td>
-                  <input type="checkbox" class="reg-concluida" checked style="width:18px; height:18px; accent-color: var(--cor-primaria); cursor:pointer;">
-                </td>
-                <td>
-                  <span class="series-number ${badgeClasse(s.tipo)}">${s.numero_serie}</span>
-                </td>
-                <td>
-                  <select class="form-select-mini reg-tipo">
-                    <option value="valida" ${s.tipo === 'valida' ? 'selected' : ''}>Válida</option>
-                    <option value="aquecimento" ${s.tipo === 'aquecimento' ? 'selected' : ''}>Aquecimento</option>
-                    <option value="dropset" ${s.tipo === 'dropset' ? 'selected' : ''}>Dropset</option>
-                    <option value="cluster" ${s.tipo === 'cluster' ? 'selected' : ''}>Cluster</option>
-                    <option value="piramide_crescente" ${s.tipo === 'piramide_crescente' ? 'selected' : ''}>P. Crescente</option>
-                    <option value="piramide_decrescente" ${s.tipo === 'piramide_decrescente' ? 'selected' : ''}>P. Decrescente</option>
-                  </select>
-                </td>
-                <td>
-                  <input class="form-input-mini reg-carga" type="number" value="${s.carga_kg}" min="0" step="0.5">
-                </td>
-                <td>
-                  <input class="form-input-mini reg-reps" type="number" value="${s.repeticoes}" min="0">
-                </td>
-                <td>
-                  <button class="btn btn-outline btn-icon btn-tiny" onclick="abrirModalAvancadoRegistro(this)" title="Configurações Avançadas" type="button">⚙️</button>
-                </td>
-              </tr>
-            `).join('')}
+            ${seriesRenderizar.map(s => {
+              // Ajustar checkbox caso já esteja salvo e concluído (banco usa concluida=1|0)
+              const hasConcluida = s.concluida !== undefined ? s.concluida : 1; 
+              
+              return `
+                <tr class="reg-serie-row" data-exercicio-id="${ex.id}" data-nome-exercicio="${ex.nome}" data-numero-serie="${s.numero_serie}"
+                    data-pico="${s.pico_contracao||0}" data-pico-segundos="${s.pico_contracao_segundos||0}" 
+                    data-ajuda="${s.ajuda||0}" data-notas="${(s.notas||'').replace(/"/g, '&quot;')}" 
+                    data-drops='${typeof s.dropset_detalhes==="string"?s.dropset_detalhes:JSON.stringify(s.dropset_detalhes||[])}'>
+                  <td>
+                    <input type="checkbox" class="reg-concluida" ${hasConcluida ? 'checked' : ''} style="width:18px; height:18px; accent-color: var(--cor-primaria); cursor:pointer;">
+                  </td>
+                  <td>
+                    <span class="series-number ${badgeClasse(s.tipo)}">${s.numero_serie}</span>
+                  </td>
+                  <td>
+                    <select class="form-select-mini reg-tipo">
+                      <option value="valida" ${s.tipo === 'valida' ? 'selected' : ''}>Válida</option>
+                      <option value="aquecimento" ${s.tipo === 'aquecimento' ? 'selected' : ''}>Aquecimento</option>
+                      <option value="dropset" ${s.tipo === 'dropset' ? 'selected' : ''}>Dropset</option>
+                      <option value="cluster" ${s.tipo === 'cluster' ? 'selected' : ''}>Cluster</option>
+                      <option value="piramide_crescente" ${s.tipo === 'piramide_crescente' ? 'selected' : ''}>P. Crescente</option>
+                      <option value="piramide_decrescente" ${s.tipo === 'piramide_decrescente' ? 'selected' : ''}>P. Decrescente</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input class="form-input-mini reg-carga" type="number" value="${s.carga_kg}" min="0" step="0.5">
+                  </td>
+                  <td>
+                    <input class="form-input-mini reg-reps" type="number" value="${s.repeticoes}" min="0">
+                  </td>
+                  <td>
+                    <button class="btn btn-outline btn-icon btn-tiny" onclick="abrirModalAvancadoRegistro(this)" title="Configurações Avançadas" type="button">⚙️</button>
+                  </td>
+                </tr>
+              `}).join('')}
           </tbody>
         </table>
       </div>
     `;
   }).join('');
+}
+
+function fecharModalRegistro() {
+  document.getElementById('modal-registro-dia').classList.add('hidden');
 }
 
 // ============================================
@@ -362,83 +494,6 @@ function renderizarResumo(dados) {
       <div class="summary-value neutral">${sessoes.length}</div>
     </div>
   `;
-}
-
-// ============================================
-// Histórico de Treinos
-// ============================================
-
-async function carregarHistorico() {
-  const container = document.getElementById('history-list');
-  const emptyState = document.getElementById('empty-history');
-  const sessoes = await buscarSessoes();
-
-  if (sessoes.length === 0) {
-    emptyState.classList.remove('hidden');
-    container.innerHTML = '';
-    return;
-  }
-
-  emptyState.classList.add('hidden');
-
-  container.innerHTML = sessoes.map(sessao => {
-    const dataFormatada = new Date(sessao.data + 'T12:00:00').toLocaleDateString('pt-BR', {
-      weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
-    });
-
-    // Agrupar séries por exercício
-    const porExercicio = {};
-    sessao.series.forEach(s => {
-      if (!porExercicio[s.nome_exercicio]) porExercicio[s.nome_exercicio] = [];
-      porExercicio[s.nome_exercicio].push(s);
-    });
-
-    return `
-      <div class="history-card">
-        <div class="history-card-header">
-          <span class="history-date">${dataFormatada}</span>
-        </div>
-        ${Object.entries(porExercicio).map(([nome, series]) => `
-          <div class="history-exercise-group">
-            <div class="history-exercise-title">${nome}</div>
-            <div class="history-series-list">
-              ${series.map(s => {
-                let extraHtml = '';
-                if (s.pico_contracao) extraHtml += `<div style="color:var(--cor-primaria);font-size:0.75rem;margin-top:2px;">⏱ Pico de Contração: ${s.pico_contracao_segundos}s</div>`;
-                if (s.ajuda) extraHtml += `<div style="color:var(--cor-amarelo);font-size:0.75rem;margin-top:2px;">🤝 Com ajuda</div>`;
-                if (s.notas) extraHtml += `<div style="color:var(--cor-texto-terciario);font-size:0.75rem;margin-top:2px;">📝 Obs: ${s.notas}</div>`;
-                
-                let dropsHtml = '';
-                if (s.tipo === 'dropset' && s.dropset_detalhes) {
-                   try {
-                     const drops = typeof s.dropset_detalhes === 'string' ? JSON.parse(s.dropset_detalhes) : s.dropset_detalhes;
-                     if (drops.length > 0) {
-                       dropsHtml = '<div style="padding-left:36px; margin-top:6px; font-size:0.75rem; color:var(--cor-texto-terciario);">';
-                       dropsHtml += drops.map((d,i) => `<span style="color:var(--cor-roxo);">Drop #${i+1}:</span> ${d.carga}kg × ${d.reps} reps`).join('<br>');
-                       dropsHtml += '</div>';
-                     }
-                   } catch(e){}
-                }
-
-                return `
-                <div class="history-series-row" style="flex-direction:column; align-items:flex-start; margin-bottom:12px;">
-                  <div style="display:flex; align-items:center; gap:12px; width:100%;">
-                    <span class="series-number ${badgeClasse(s.tipo)}" style="width:24px;height:24px;font-size:0.7rem;">${s.numero_serie}</span>
-                    <span class="tipo-badge ${badgeClasse(s.tipo)}">${nomeTipo(s.tipo)}</span>
-                    <span>⚡ ${s.carga_kg}kg</span>
-                    <span>× ${s.repeticoes} reps</span>
-                    ${!s.concluida ? '<span style="color:var(--cor-vermelho);">❌ Não concluída</span>' : ''}
-                  </div>
-                  ${extraHtml ? `<div style="padding-left:36px; margin-top:4px;">${extraHtml}</div>` : ''}
-                  ${dropsHtml}
-                </div>
-              `}).join('')}
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    `;
-  }).join('');
 }
 
 // ============================================

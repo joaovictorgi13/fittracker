@@ -108,10 +108,6 @@
             <span class="app-nav-icon">📊</span>
             <span>Evolução</span>
           </button>
-          <button class="app-nav-btn" data-tab="historico" id="nav-historico">
-            <span class="app-nav-icon">📅</span>
-            <span>Histórico</span>
-          </button>
         </nav>
 
         <div class="app-user" id="app-user">
@@ -132,9 +128,9 @@
       <!-- ABA: MEUS TREINOS -->
       <!-- ==================== -->
       <section class="tab-content active" id="tab-treinos">
-        <div class="page-header">
-          <h1 class="page-title">Meus Treinos</h1>
-          <p class="page-subtitle">Organize seus exercícios por dia da semana — cada dia tem seu treino fixo</p>
+        <div class="page-header" style="background: rgba(var(--cor-primaria-rgb), 0.1); border: 1px solid var(--cor-primaria); padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+          <h1 class="page-title" style="color: var(--cor-primaria); font-size: 1.5rem; margin-bottom: 5px;">🔧 Crie Seu Treino Base</h1>
+          <p class="page-subtitle" style="margin: 0; color: var(--cor-texto-secundario);">Registre aqui a <strong>base</strong> da sua rotina para cada dia da semana. Semanalmente, na aba "Registrar", você repetirá essa rotina e controlará apenas as variáveis (cargas, repetições).</p>
         </div>
 
         <!-- Abas dos dias -->
@@ -148,7 +144,20 @@
           <button class="day-tab" data-dia="domingo">Dom</button>
         </div>
 
-        <!-- Adicionar exercício -->
+        <!-- Configuração do Dia -->
+        <div class="day-config-panel" style="display: flex; gap: 15px; align-items: center; background: var(--cor-superficie); padding: 15px; border-radius: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 200px;">
+            <label class="form-label" for="dia-nome-rotina" style="margin-bottom: 4px; font-size: 0.8rem;">Nome da Rotina (Opcional)</label>
+            <input class="form-input" type="text" id="dia-nome-rotina" placeholder="Ex: Push, Pull, Pernas...">
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="dia-is-descanso" style="width: 20px; height: 20px; accent-color: var(--cor-vermelho);">
+            <label for="dia-is-descanso" style="cursor: pointer; color: var(--cor-texto); font-weight: 500;">Marcar como Dia de Descanso</label>
+          </div>
+        </div>
+
+        <div id="day-content-area">
+          <!-- Adicionar exercício -->
         <div class="add-exercise-bar">
           <input class="form-input" type="text" id="exercicio-nome" placeholder="Nome do exercício (ex: Supino Reto)">
           <button class="btn btn-primary" id="btn-adicionar-exercicio">+ Adicionar Exercício</button>
@@ -211,46 +220,64 @@
             </div>
           </div>
         </div>
+        </div> <!-- end day-content-area -->
       </section>
 
       <!-- ==================== -->
       <!-- ABA: REGISTRAR TREINO -->
       <!-- ==================== -->
       <section class="tab-content" id="tab-registrar">
-        <div class="page-header">
-          <h1 class="page-title">Registrar Treino</h1>
-          <p class="page-subtitle">Registre o treino que você realizou — ajuste cada série individualmente</p>
+        <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <h1 class="page-title">Semanas de Treino</h1>
+            <p class="page-subtitle">Acompanhe seu histórico e registre novos treinos separados por semana</p>
+          </div>
+          <button class="btn btn-primary" id="btn-nova-semana">+ Nova Semana</button>
         </div>
 
-        <div class="register-controls">
-          <div class="form-group">
-            <label class="form-label" for="registro-data">Data do Treino</label>
-            <input class="form-input" type="date" id="registro-data">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="registro-dia">Dia da Semana</label>
-            <select class="form-input form-select" id="registro-dia">
-              <option value="segunda">Segunda-feira</option>
-              <option value="terca">Terça-feira</option>
-              <option value="quarta">Quarta-feira</option>
-              <option value="quinta">Quinta-feira</option>
-              <option value="sexta">Sexta-feira</option>
-              <option value="sabado">Sábado</option>
-              <option value="domingo">Domingo</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="register-exercises" id="register-exercises">
+        <div id="semanas-container" style="display: flex; flex-direction: column; gap: 15px;">
+          <!-- Semanas geradas via JS -->
           <div class="empty-state">
-            <span class="empty-icon">📋</span>
-            <p class="empty-text">Selecione um dia para ver os exercícios.</p>
+            <span class="empty-icon">📅</span>
+            <p class="empty-text">Carregando semanas...</p>
           </div>
         </div>
 
-        <button class="btn btn-primary btn-full btn-register-workout" id="btn-registrar-treino">
-          ✅ Registrar Treino Completo
-        </button>
+        <!-- O Modal de Registro de Treino do Dia -->
+        <div class="modal-overlay hidden" id="modal-registro-dia">
+          <div class="modal" style="max-width: 800px; width: 95%;">
+            <div class="modal-header">
+              <h3 class="modal-title" id="registro-modal-titulo">Registrar Treino</h3>
+              <button class="modal-close" id="modal-registro-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 15px; max-height: 75vh; overflow-y: auto;">
+              <input type="hidden" id="registro-semana-atual">
+              <input type="hidden" id="registro-dia-atual">
+              
+              <div class="form-group">
+                <label class="form-label" for="registro-data">Data da Execução</label>
+                <input class="form-input" type="date" id="registro-data">
+              </div>
+
+              <div id="registro-dia-descanso-msg" class="hidden">
+                 <div class="empty-state" style="background: rgba(var(--cor-vermelho-rgb), 0.1); border: 1px solid var(--cor-vermelho);">
+                  <span class="empty-icon" style="font-size: 3rem;">😴</span>
+                  <p class="empty-text" style="color: var(--cor-vermelho); font-weight: bold; font-size: 1.2rem;">Dia de Descanso</p>
+                  <p class="empty-hint">Apenas salve para confirmar o dia de descanso na semana.</p>
+                </div>
+              </div>
+
+              <div class="register-exercises" id="register-exercises">
+                <!-- Exercícios preenchidos via JS -->
+              </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between;">
+              <button class="btn btn-outline" id="btn-cancelar-registro">Cancelar</button>
+              <button class="btn btn-primary" id="btn-salvar-registro">✅ Salvar Sessão</button>
+            </div>
+          </div>
+        </div>
+
       </section>
 
       <!-- ==================== -->
@@ -276,22 +303,6 @@
         </div>
       </section>
 
-      <!-- ==================== -->
-      <!-- ABA: HISTÓRICO -->
-      <!-- ==================== -->
-      <section class="tab-content" id="tab-historico">
-        <div class="page-header">
-          <h1 class="page-title">Histórico de Treinos</h1>
-          <p class="page-subtitle">Todos os seus treinos registrados com detalhes de cada série</p>
-        </div>
-        <div class="history-container" id="history-container">
-          <div class="empty-state" id="empty-history">
-            <span class="empty-icon">📅</span>
-            <p class="empty-text">Nenhum treino registrado ainda.</p>
-            <p class="empty-hint">Vá até "Registrar" para começar.</p>
-          </div>
-          <div class="history-list" id="history-list"></div>
-        </div>
       </section>
 
     </main>

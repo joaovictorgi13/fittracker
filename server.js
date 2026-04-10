@@ -103,6 +103,45 @@ app.get('/api/admin/usuarios', async (req, res) => {
 });
 
 // ============================================
+// DIAS CONFIG (Descanso, Nomes dos dias)
+// ============================================
+
+app.get('/api/dias-config', verificarLogin, async (req, res) => {
+  try {
+    const configs = await db.all(
+      'SELECT dia_semana, nome_rotina, is_descanso FROM dias_config WHERE usuario_id = $1',
+      [req.session.usuarioId]
+    );
+    res.json(configs);
+  } catch (err) {
+    console.error('Erro:', err);
+    res.status(500).json({ erro: 'Erro ao buscar configurações dos dias.' });
+  }
+});
+
+app.post('/api/dias-config', verificarLogin, async (req, res) => {
+  try {
+    const { dia_semana, nome_rotina, is_descanso } = req.body;
+    if (!dia_semana) return res.status(400).json({ erro: 'Dia da semana é obrigatório.' });
+
+    const isDescansoVal = is_descanso ? 1 : 0;
+
+    await db.run(
+      `INSERT INTO dias_config (usuario_id, dia_semana, nome_rotina, is_descanso) 
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (usuario_id, dia_semana) 
+       DO UPDATE SET nome_rotina = EXCLUDED.nome_rotina, is_descanso = EXCLUDED.is_descanso`,
+      [req.session.usuarioId, dia_semana, nome_rotina || '', isDescansoVal]
+    );
+
+    res.json({ sucesso: true });
+  } catch (err) {
+    console.error('Erro:', err);
+    res.status(500).json({ erro: 'Erro ao salvar configurações do dia.' });
+  }
+});
+
+// ============================================
 // EXERCÍCIOS
 // ============================================
 
@@ -316,40 +355,58 @@ app.delete('/api/series/:id', verificarLogin, async (req, res) => {
 
 app.post('/api/sessoes', verificarLogin, async (req, res) => {
   try {
-    const { data, dia_semana, observacoes, series } = req.body;
+    const { data, dia_semana, numero_semana, observacoes, series } = req.body;
     if (!data || !dia_semana) return res.status(400).json({ erro: 'Data e dia são obrigatórios.' });
-    if (!series || series.length === 0) return res.status(400).json({ erro: 'Registre pelo menos uma série.' });
+    if (!numero_semana) return res.status(400).json({ erro: 'Número da semana é obrigatório.' });
 
-    const sessao = await db.get(
-      'INSERT INTO sessoes_treino (usuario_id, data, dia_semana, observacoes) VALUES ($1, $2, $3, $4) RETURNING id',
-      [req.session.usuarioId, data, dia_semana, observacoes || '']
+    // Verifica se já existe uma sessão para esta semana/dia (Para permitir "atualização")
+    let sessaoId;
+    const existe = await db.get(
+      'SELECT id FROM sessoes_treino WHERE usuario_id = $1 AND numero_semana = $2 AND dia_semana = $3',
+      [req.session.usuarioId, numero_semana, dia_semana]
     );
 
-    for (const s of series) {
-      await db.run(
-        `INSERT INTO series_realizadas (sessao_id, exercicio_id, nome_exercicio, numero_serie, carga_kg, repeticoes, tipo, concluida, notas, dropset_detalhes, pico_contracao, pico_contracao_segundos, ajuda)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-        [
-          sessao.id, s.exercicio_id, s.nome_exercicio, s.numero_serie, s.carga_kg || 0, s.repeticoes || 0, s.tipo || 'valida', 
-          s.concluida !== undefined ? (s.concluida ? 1 : 0) : 1, s.notas || '',
-          s.dropset_detalhes ? (typeof s.dropset_detalhes === 'string' ? s.dropset_detalhes : JSON.stringify(s.dropset_detalhes)) : '[]',
-          s.pico_contracao ? 1 : 0,
-          s.pico_contracao_segundos || 0,
-          s.ajuda ? 1 : 0
-        ]
+    if (existe) {
+      sessaoId = existe.id;
+      // Atualiza data e observações
+      await db.run('UPDATE sessoes_treino SET data = $1, observacoes = $2 WHERE id = $3', [data, observacoes || '', sessaoId]);
+      // Remove séries antigas
+      await db.run('DELETE FROM series_realizadas WHERE sessao_id = $1', [sessaoId]);
+    } else {
+      const sessao = await db.get(
+        'INSERT INTO sessoes_treino (usuario_id, data, dia_semana, numero_semana, observacoes) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [req.session.usuarioId, data, dia_semana, numero_semana, observacoes || '']
       );
+      sessaoId = sessao.id;
     }
-    res.json({ sucesso: true, sessao_id: sessao.id });
+
+    if (series && series.length > 0) {
+      for (const s of series) {
+        await db.run(
+          `INSERT INTO series_realizadas (sessao_id, exercicio_id, nome_exercicio, numero_serie, carga_kg, repeticoes, tipo, concluida, notas, dropset_detalhes, pico_contracao, pico_contracao_segundos, ajuda)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [
+            sessaoId, s.exercicio_id, s.nome_exercicio, s.numero_serie, s.carga_kg || 0, s.repeticoes || 0, s.tipo || 'valida', 
+            s.concluida !== undefined ? (s.concluida ? 1 : 0) : 1, s.notas || '',
+            s.dropset_detalhes ? (typeof s.dropset_detalhes === 'string' ? s.dropset_detalhes : JSON.stringify(s.dropset_detalhes)) : '[]',
+            s.pico_contracao ? 1 : 0,
+            s.pico_contracao_segundos || 0,
+            s.ajuda ? 1 : 0
+          ]
+        );
+      }
+    }
+    
+    res.json({ sucesso: true, sessao_id: sessaoId });
   } catch (err) {
     console.error('Erro:', err);
     res.status(500).json({ erro: 'Erro interno.' });
   }
 });
-
 app.get('/api/sessoes', verificarLogin, async (req, res) => {
   try {
     const sessoes = await db.all(
-      'SELECT * FROM sessoes_treino WHERE usuario_id = $1 ORDER BY data DESC', [req.session.usuarioId]
+      'SELECT * FROM sessoes_treino WHERE usuario_id = $1 ORDER BY numero_semana DESC, data DESC', [req.session.usuarioId]
     );
     const resultado = [];
     for (const sessao of sessoes) {
@@ -361,6 +418,46 @@ app.get('/api/sessoes', verificarLogin, async (req, res) => {
     res.json(resultado);
   } catch (err) {
     console.error('Erro:', err);
+    res.status(500).json({ erro: 'Erro interno.' });
+  }
+});
+
+// Listar Semanas e sessões correspondentes
+app.get('/api/semanas', verificarLogin, async (req, res) => {
+  try {
+    // Busca a maior semana registrada para determinar quantas semanas existem
+    const maxSem = await db.get('SELECT COALESCE(MAX(numero_semana), 0) as max FROM sessoes_treino WHERE usuario_id = $1', [req.session.usuarioId]);
+    let totalSemanas = parseInt(maxSem.max) || 0;
+    
+    if (totalSemanas === 0) {
+      // Se não tem treinos, sempre retorna 1 semana vazia inicial
+      totalSemanas = 1;
+    }
+
+    const resposta = [];
+    for (let sem = totalSemanas; sem >= 1; sem--) {
+      const sessoes = await db.all(
+        'SELECT * FROM sessoes_treino WHERE usuario_id = $1 AND numero_semana = $2',
+        [req.session.usuarioId, sem]
+      );
+
+      const sessoesCompletas = [];
+      for (const sessao of sessoes) {
+        const series = await db.all(
+          'SELECT * FROM series_realizadas WHERE sessao_id = $1 ORDER BY exercicio_id, numero_serie', [sessao.id]
+        );
+        sessoesCompletas.push({ ...sessao, series });
+      }
+
+      resposta.push({
+        numero_semana: sem,
+        sessoes: sessoesCompletas
+      });
+    }
+
+    res.json(resposta);
+  } catch (err) {
+    console.error('Erro ao buscar semanas:', err);
     res.status(500).json({ erro: 'Erro interno.' });
   }
 });

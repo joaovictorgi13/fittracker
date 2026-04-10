@@ -15,6 +15,20 @@ async function buscarExercicios(dia) {
   return await resposta.json();
 }
 
+async function buscarDiasConfig() {
+  const resposta = await fetch('/api/dias-config');
+  return await resposta.json();
+}
+
+async function salvarDiaConfig(dados) {
+  const resposta = await fetch('/api/dias-config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados)
+  });
+  return await resposta.json();
+}
+
 async function buscarTodosExercicios() {
   const resposta = await fetch('/api/exercicios');
   return await resposta.json();
@@ -96,7 +110,48 @@ function letraTipo(tipo) {
 // Renderizar Lista de Exercícios com Séries
 // ============================================
 
+let diasConfiguracoes = [];
+
+async function carregarTodasConfigs() {
+  diasConfiguracoes = await buscarDiasConfig();
+  atualizarAparenciaDoDia();
+}
+
+function atualizarAparenciaDoDia() {
+  const config = diasConfiguracoes.find(c => c.dia_semana === diaAtual) || { nome_rotina: '', is_descanso: 0 };
+  
+  const inputNome = document.getElementById('dia-nome-rotina');
+  const checkDescanso = document.getElementById('dia-is-descanso');
+  const contentArea = document.getElementById('day-content-area');
+  
+  if (inputNome) inputNome.value = config.nome_rotina || '';
+  if (checkDescanso) checkDescanso.checked = config.is_descanso === 1;
+
+  if (config.is_descanso === 1) {
+    if (contentArea) contentArea.style.display = 'none';
+    
+    // Mostra estado de descanso
+    const lista = document.getElementById('exercises-list');
+    if (lista) {
+      lista.innerHTML = `
+        <div class="empty-state" style="background: rgba(var(--cor-vermelho-rgb), 0.1); border: 1px solid var(--cor-vermelho);">
+          <span class="empty-icon" style="font-size: 3rem;">😴</span>
+          <p class="empty-text" style="color: var(--cor-vermelho); font-weight: bold; font-size: 1.2rem;">Dia de Descanso</p>
+          <p class="empty-hint">Aproveite para recuperar as energias. Seus músculos crescem enquanto você descansa!</p>
+        </div>
+      `;
+    }
+  } else {
+    if (contentArea) contentArea.style.display = 'block';
+  }
+}
+
 async function renderizarExercicios() {
+  atualizarAparenciaDoDia();
+  
+  const config = diasConfiguracoes.find(c => c.dia_semana === diaAtual) || { is_descanso: 0 };
+  if (config.is_descanso === 1) return; // Não renderiza treinos no dia de descanso
+
   const lista = document.getElementById('exercises-list');
   const exercicios = await buscarExercicios(diaAtual);
 
@@ -247,6 +302,39 @@ function configurarExercicios() {
       renderizarExercicios();
     });
   });
+
+  // Config do Dia (Descanso e Nome)
+  const inputNome = document.getElementById('dia-nome-rotina');
+  const checkDescanso = document.getElementById('dia-is-descanso');
+
+  if (inputNome) {
+    let timeoutId;
+    inputNome.addEventListener('input', () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(async () => {
+        const index = diasConfiguracoes.findIndex(c => c.dia_semana === diaAtual);
+        if (index > -1) diasConfiguracoes[index].nome_rotina = inputNome.value;
+        else diasConfiguracoes.push({ dia_semana: diaAtual, nome_rotina: inputNome.value, is_descanso: checkDescanso.checked ? 1 : 0 });
+
+        await salvarDiaConfig({ dia_semana: diaAtual, nome_rotina: inputNome.value, is_descanso: checkDescanso.checked });
+        mostrarToast('Nome da rotina atualizado.', 'success');
+      }, 800);
+    });
+  }
+
+  if (checkDescanso) {
+    checkDescanso.addEventListener('change', async () => {
+      const isDescanso = checkDescanso.checked;
+      
+      const index = diasConfiguracoes.findIndex(c => c.dia_semana === diaAtual);
+      if (index > -1) diasConfiguracoes[index].is_descanso = isDescanso ? 1 : 0;
+      else diasConfiguracoes.push({ dia_semana: diaAtual, nome_rotina: inputNome ? inputNome.value : '', is_descanso: isDescanso ? 1 : 0 });
+
+      await salvarDiaConfig({ dia_semana: diaAtual, nome_rotina: inputNome ? inputNome.value : '', is_descanso: isDescanso });
+      mostrarToast(isDescanso ? 'Marcado como descanso.' : 'Marcado como dia de treino.', 'success');
+      renderizarExercicios();
+    });
+  }
 
   // Botão de adicionar exercício
   document.getElementById('btn-adicionar-exercicio').addEventListener('click', async () => {

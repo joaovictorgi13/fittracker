@@ -49,6 +49,15 @@ const db = {
         criado_em TIMESTAMP DEFAULT NOW()
       )`,
 
+      `CREATE TABLE IF NOT EXISTS dias_config (
+        id SERIAL PRIMARY KEY,
+        usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        dia_semana TEXT NOT NULL,
+        nome_rotina TEXT DEFAULT '',
+        is_descanso INTEGER DEFAULT 0,
+        UNIQUE(usuario_id, dia_semana)
+      )`,
+
       `CREATE TABLE IF NOT EXISTS exercicios (
         id SERIAL PRIMARY KEY,
         usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
@@ -98,6 +107,8 @@ const db = {
 
     // Migrações para garantir que colunas de recursos avançados existam
     const colunasAvancadas = [
+      `ALTER TABLE sessoes_treino ADD COLUMN IF NOT EXISTS numero_semana INTEGER DEFAULT 1`,
+
       `ALTER TABLE series_modelo ADD COLUMN IF NOT EXISTS dropset_detalhes TEXT DEFAULT '[]'`,
       `ALTER TABLE series_modelo ADD COLUMN IF NOT EXISTS pico_contracao INTEGER DEFAULT 0`,
       `ALTER TABLE series_modelo ADD COLUMN IF NOT EXISTS pico_contracao_segundos INTEGER DEFAULT 0`,

@@ -43,9 +43,11 @@ function mostrarAplicacao(usuario) {
   configurarRegistro();
 
   // Carregar dados iniciais
-  renderizarExercicios();
+  carregarTodasConfigs().then(() => {
+    renderizarExercicios();
+  });
+  carregarTodasSemanas();
   carregarEvolucao();
-  carregarHistorico();
 }
 
 // ============================================
@@ -74,10 +76,8 @@ function configurarNavegacao() {
 
       // Recarregar dados quando trocar de aba
       if (tabAlvo === 'evolucao') carregarEvolucao();
-      if (tabAlvo === 'historico') carregarHistorico();
       if (tabAlvo === 'registrar') {
-        const dia = document.getElementById('registro-dia').value;
-        carregarExerciciosRegistro(dia);
+        carregarTodasSemanas();
       }
     });
   });

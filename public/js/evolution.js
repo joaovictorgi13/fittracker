@@ -24,8 +24,13 @@ async function buscarSessoes() {
 }
 
 async function buscarEvolucao() {
-  const resposta = await fetch('/api/evolucao');
-  return await resposta.json();
+  try {
+    const resposta = await fetch('/api/evolucao');
+    const dados = await resposta.json();
+    return Array.isArray(dados) ? dados : [];
+  } catch (err) {
+    return [];
+  }
 }
 
 // ============================================
@@ -33,8 +38,13 @@ async function buscarEvolucao() {
 // ============================================
 
 async function buscarSemanas() {
-  const resposta = await fetch('/api/semanas');
-  return await resposta.json();
+  try {
+    const resposta = await fetch('/api/semanas');
+    const dados = await resposta.json();
+    return Array.isArray(dados) ? dados : [];
+  } catch (err) {
+    return [];
+  }
 }
 
 let semanasGlobais = [];

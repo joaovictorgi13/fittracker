@@ -16,8 +16,13 @@ async function buscarExercicios(dia) {
 }
 
 async function buscarDiasConfig() {
-  const resposta = await fetch('/api/dias-config');
-  return await resposta.json();
+  try {
+    const resposta = await fetch('/api/dias-config');
+    const dados = await resposta.json();
+    return Array.isArray(dados) ? dados : [];
+  } catch (err) {
+    return [];
+  }
 }
 
 async function salvarDiaConfig(dados) {

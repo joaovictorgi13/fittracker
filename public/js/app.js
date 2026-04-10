@@ -29,25 +29,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ============================================
 
 function mostrarAplicacao(usuario) {
-  // Esconder login e mostrar app
-  document.getElementById('auth-overlay').classList.add('hidden');
-  document.getElementById('app-wrapper').classList.remove('hidden');
+  try {
+    // Esconder login e mostrar app
+    document.getElementById('auth-overlay').classList.add('hidden');
+    document.getElementById('app-wrapper').classList.remove('hidden');
 
-  // Atualizar nome e avatar
-  document.getElementById('user-name').textContent = usuario.nome;
-  document.getElementById('user-avatar').textContent = usuario.nome.charAt(0).toUpperCase();
+    // Atualizar nome e avatar
+    document.getElementById('user-name').textContent = usuario.nome;
+    document.getElementById('user-avatar').textContent = usuario.nome.charAt(0).toUpperCase();
 
-  // Configurar tudo
-  configurarNavegacao();
-  configurarExercicios();
-  configurarRegistro();
+    // Configurar tudo
+    configurarNavegacao();
+    configurarExercicios();
+    configurarRegistro();
 
-  // Carregar dados iniciais
-  carregarTodasConfigs().then(() => {
-    renderizarExercicios();
-  });
-  carregarTodasSemanas();
-  carregarEvolucao();
+    // Carregar dados iniciais
+    carregarTodasConfigs().then(() => {
+      renderizarExercicios();
+    }).catch(e => console.error("Error carregarTodasConfigs:", e));
+    
+    carregarTodasSemanas().catch(e => console.error("Error carregarTodasSemanas:", e));
+    carregarEvolucao().catch(e => console.error("Error carregarEvolucao:", e));
+  } catch (err) {
+    console.error("FATAL ERROR in mostrarAplicacao:", err);
+    alert("Erro crítico no frontend. Tire um print e envie ao desenvolvedor: " + err.stack);
+  }
 }
 
 // ============================================
